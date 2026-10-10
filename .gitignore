@@ -1,0 +1,15 @@
+# Tunnel logs
+/tunnel-out.log
+/tunnel-err.log
+
+# Runtime uploads (bukti bayar) — jangan di-commit
+public/uploads/*
+!public/uploads/.htaccess
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,0 +1,9 @@
+# Cegah eksekusi script di folder uploads
+# Catatan: jangan pakai "php_flag engine off" — hosting yang mematikan php_flag
+# akan mengembalikan HTTP 500 untuk seluruh folder.
+# Cara ini tetap aman di Apache 2.4 (XAMPP) dan tidak memengaruhi penyajian gambar.
+<FilesMatch "(?i)\.(php|phtml|php[0-9]|phar|cgi|pl|py|shtml|asp|aspx|jsp)$">
+  Require all denied
+</FilesMatch>
+Options -Indexes
+AddType text/plain .php .phtml .phar
