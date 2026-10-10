@@ -278,6 +278,11 @@ CREATE TABLE payments (
 - Upload bukti bayar: jpg/png, maks **5MB**; nominal = 50% (DP) atau 100% (Lunas) dari total tagihan, dihitung di server.
 - Satu booking = satu kolam + satu slot.
 - Semua pesan WhatsApp wajib memuat kode booking + jumlah tagihan.
+- **`jam_tutup` bersifat eksklusif**: slot terakhir selalu 1 jam sebelum jam tutup. Kolam `06:00`–`18:00` menghasilkan 12 slot (`06:00`…`17:00`); kolam `06:00`–`17:00` menghasilkan 11 slot (`06:00`…`16:00`). Berlaku seragam di seed, di `generate_slot()`, dan di validasi booking.
+- **Horizon slot = 14 hari ke depan, dijaga secara *lazy*.** Tidak ada cron: `ensure_slot_horizon()` dipanggil dari `api/ketersediaan.php` dan dari tombol di halaman Jadwal, dan hanya menulis bila `MAX(tanggal) < CURDATE() + 13`. Konsekuensinya: aplikasi tidak pernah berhenti bisa dibooking meski pemiliknya tidak pernah login.
+- Slot dengan status `tutup` yang dibuat otomatis karena jam operasional menyusut **tidak dibuka kembali otomatis** saat jam diperpanjang — pemilik membuka manual di halaman Jadwal.
+- Pembatalan booking juga mengubah payment terkait menjadi `ditolak`, dan query pendapatan secara eksplisit `b.status <> 'dibatalkan'`.
+- Pengaman berlapis pada booking: slot harus ada, berstatus `buka`, **dan** jamnya berada di dalam `[jam_buka, jam_tutup)` kolam serta belum lewat untuk hari ini. Mengubah jam operasional kolam otomatis menutup slot di luar jam baru, kecuali slot yang sudah dibooking.
 
 ---
 

@@ -1,0 +1,9 @@
+# Folder ini satu-satunya yang boleh diakses lewat web (lihat .htaccess di root project).
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Allow from all
+    Deny from none
+</IfModule>

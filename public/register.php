@@ -15,8 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($nama === '' || $email === '' || $no_wa === '' || $password === '') {
         $error = 'Semua field wajib diisi.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    } elseif (mb_strlen($nama) > 100) {
+        $error = 'Nama maksimal 100 karakter.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 150) {
         $error = 'Format email tidak valid.';
+    } elseif (!preg_match('/^\+?[0-9]{8,20}$/', $no_wa)) {
+        $error = 'Nomor WhatsApp harus 8-20 digit, boleh diawali + (contoh: 081234567890).';
     } elseif (strlen($password) < 8) {
         $error = 'Password minimal 8 karakter.';
     } elseif ($password !== $konfirmasi) {
@@ -27,10 +31,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($cek->fetch()) {
             $error = 'Email sudah terdaftar. Silakan login.';
         } else {
-            $hash = password_hash($password, PASSWORD_BCRYPT);
-            $stmt = $pdo->prepare("INSERT INTO users (nama, email, password_hash, no_wa, role) VALUES (?, ?, ?, ?, 'pemancing')");
-            $stmt->execute([$nama, $email, $hash, $no_wa]);
-            redirect('/Booking_Pemancingan/public/login.php?err=' . urlencode('Pendaftaran berhasil, silakan masuk.'));
+            try {
+                $hash = password_hash($password, PASSWORD_BCRYPT);
+                $stmt = $pdo->prepare("INSERT INTO users (nama, email, password_hash, no_wa, role) VALUES (?, ?, ?, ?, 'pemancing')");
+                $stmt->execute([$nama, $email, $hash, $no_wa]);
+                redirect('/Booking_Pemancingan/public/login.php?err=' . urlencode('Pendaftaran berhasil, silakan masuk.'));
+            } catch (PDOException $ex) {
+                // 23000/1062 = email bentrok (mis. dua pendaftaran bersamaan)
+                $error = ($ex->getCode() === '23000')
+                    ? 'Email sudah terdaftar. Silakan login.'
+                    : 'Pendaftaran gagal. Coba lagi sebentar.';
+            }
         }
     }
 }

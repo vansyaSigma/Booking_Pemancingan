@@ -45,7 +45,8 @@ if (!$slot) { exit('Slot belum dipilih. <a href="semua-kolam.php">Kembali</a>');
     <input type="text" id="no_wa" name="no_wa" value="<?= e($waTersimpan) ?>" readonly>
     <p class="hint">Nama dan WhatsApp mengikuti akunmu.</p>
     <label for="jumlah_orang">Jumlah orang</label>
-    <input type="number" id="jumlah_orang" name="jumlah_orang" min="1" value="1" required>
+    <input type="number" id="jumlah_orang" name="jumlah_orang" min="1" max="20" value="1" required>
+    <p class="hint">Maksimal 20 orang per booking.</p>
     <label for="catatan">Catatan (opsional)</label>
     <textarea id="catatan" name="catatan" rows="3"></textarea>
     <p style="font-size:1.1rem"><strong>Total:</strong> <span id="total-harga" class="mono"><?= format_rupiah($harga) ?></span></p>

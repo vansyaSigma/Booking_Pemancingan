@@ -23,8 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $deskripsi = trim($_POST['deskripsi'] ?? '');
     $alamat = trim($_POST['alamat'] ?? '');
     $harga = (float)($_POST['harga'] ?? 0);
-    $jam_buka = $_POST['jam_buka'] ?? '06:00';
-    $jam_tutup = $_POST['jam_tutup'] ?? '17:00';
+    $jam_buka = trim($_POST['jam_buka'] ?? '06:00');
+    $jam_tutup = trim($_POST['jam_tutup'] ?? '17:00');
     $jenis_ikan = trim($_POST['jenis_ikan'] ?? '');
     $jenis_ikan = str_replace(["\r", "\n"], ',', $jenis_ikan);
     $jenis_ikan = preg_replace('/\s*,\s*/', ', ', $jenis_ikan);   // normalisasi spasi di sekitar koma
@@ -34,6 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($nama === '' || $harga <= 0 || $jenis_ikan === '') {
         $pesan = 'Nama, harga (>0), dan jenis ikan wajib diisi.';
+    } elseif (jam_menit($jam_buka) === null || jam_menit($jam_tutup) === null) {
+        // strtotime() terlalu longgar dan bisa membuat slot di luar jam operasional
+        $pesan = 'Jam buka/tutup harus format HH:MM, misalnya 06:00.';
+    } elseif (jam_menit($jam_tutup) <= jam_menit($jam_buka)) {
+        $pesan = 'Jam tutup harus lebih besar dari jam buka.';
     } else {
         $foto = null;
         if (!empty($_FILES['foto']['name']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
@@ -45,17 +50,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 move_uploaded_file($_FILES['foto']['tmp_name'], __DIR__ . '/../uploads/' . $foto);
             }
         }
-        if (!empty($_POST['edit_id'])) {
+if (!empty($_POST['edit_id'])) {
             $id = (int)$_POST['edit_id'];
+
+            // Verifikasi kepemilikan TERLEBIH DAHULU. Sebelumnya UPDATE di-scope owner_id
+            // tapi rowcount tidak dicek, sehingga generate_slot() tetap menulis slot
+            // ke kolam milik orang lain yang kebetulan dikirim lewat edit_id.
+            $cekMilik = $pdo->prepare('SELECT id, jam_buka, jam_tutup FROM kolam WHERE id = ? AND owner_id = ?');
+            $cekMilik->execute([$id, $ownerId]);
+            $kolamLama = $cekMilik->fetch();
+            if (!$kolamLama) {
+                exit('Kolam tidak ditemukan atau bukan milik Anda.');
+            }
+
             $sql = 'UPDATE kolam SET nama=?, deskripsi=?, alamat=?, harga_per_slot=?, jam_buka=?, jam_tutup=?, jenis_ikan=?, is_aktif=?';
             $params = [$nama, $deskripsi, $alamat, $harga, $jam_buka, $jam_tutup, $jenis_ikan, $aktif];
             if ($foto) { $sql .= ', foto=?'; $params[] = $foto; }
             $sql .= ' WHERE id=? AND owner_id=?';
             $params[] = $id; $params[] = $ownerId;
             $pdo->prepare($sql)->execute($params);
+
+            $pesanSlot = '';
+            // Jam berubah jadi lebih sempit? Tutup slot yang jatuh di luar jam baru,
+            // kecuali slot itu sudah punya booking aktif (dibiarkan, dilaporkan ke pemilik).
+            if (substr($kolamLama['jam_buka'], 0, 5) !== $jam_buka || substr($kolamLama['jam_tutup'], 0, 5) !== $jam_tutup) {
+                $stmtTutup = $pdo->prepare("UPDATE slots SET status = 'tutup'
+                    WHERE kolam_id = ? AND tanggal >= CURDATE()
+                      AND (TIME(jam) < ? OR TIME(jam) >= ?)
+                      AND id NOT IN (SELECT slot_id FROM bookings WHERE status <> 'dibatalkan')
+                ");
+                $stmtTutup->execute([$id, $jam_buka . ':00', $jam_tutup . ':00']);
+                $slotTutup = $stmtTutup->rowCount();
+
+                $stmtSisa = $pdo->prepare("SELECT COUNT(*) FROM slots s
+                    WHERE s.kolam_id = ? AND s.tanggal >= CURDATE()
+                      AND (TIME(s.jam) < ? OR TIME(s.jam) >= ?)
+                      AND EXISTS (SELECT 1 FROM bookings b WHERE b.slot_id = s.id AND b.status <> 'dibatalkan')
+                ");
+                $stmtSisa->execute([$id, $jam_buka . ':00', $jam_tutup . ':00']);
+                $terpakai = (int)$stmtSisa->fetchColumn();
+
+                $catatan = [];
+                if ($slotTutup > 0) {
+                    $catatan[] = $slotTutup . ' slot di luar jam baru ditutup otomatis';
+                }
+                if ($terpakai > 0) {
+                    $catatan[] = $terpakai . ' slot di luar jam baru tetap buka karena sudah dibooking';
+                }
+                $pesanSlot = $catatan ? implode('; ', $catatan) . '.' : '';
+                $pesanSlot .= ' Bila jam diperpanjang lagi, slot yang tertutup tidak terbuka otomatis — centang manual di halaman Jadwal.';
+            }
+
+            generate_slot($pdo, $id, $jam_buka, $jam_tutup);
+            if ($pesanSlot !== '') {
+                redirect('/Booking_Pemancingan/public/owner/jadwal.php?kolam=' . $id
+                    . '&err=' . urlencode('Jam kolam diperbarui.' . $pesanSlot));
+            }
         } else {
             $pdo->prepare('INSERT INTO kolam (owner_id, nama, deskripsi, alamat, harga_per_slot, jam_buka, jam_tutup, jenis_ikan, foto, is_aktif) VALUES (?,?,?,?,?,?,?,?,?,?)')
                 ->execute([$ownerId, $nama, $deskripsi, $alamat, $harga, $jam_buka, $jam_tutup, $jenis_ikan, $foto, $aktif]);
+            // Tanpa slot, kolam tidak bisa dibooking sama sekali
+            generate_slot($pdo, (int)$pdo->lastInsertId(), $jam_buka, $jam_tutup, 21);
         }
         redirect('/Booking_Pemancingan/public/owner/kolam.php');
     }

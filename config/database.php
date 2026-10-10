@@ -1,5 +1,17 @@
 <?php
 // config/database.php — Koneksi PDO ke MySQL/MariaDB (XAMPP)
+
+// Jangan tampilkan error ke Pengunjung saat di-hosting (bocorkan path absolut & stack trace).
+// Gate memakai SERVER_ADDR (alamat socket hasil koneksi) BUKAN SERVER_NAME: di Apache,
+// SERVER_NAME diturunkan dari header "Host" bila UseCanonicalName Off (nilai default),
+// sehingga siapa pun bisa mengaktifkan display_errors hanya dengan mengirim "Host: localhost".
+// Secara lokal (127.0.0.1 / ::1) error tetap tampil supaya mudah saat ngoding.
+$isLokal = in_array($_SERVER['SERVER_ADDR'] ?? '', ['127.0.0.1', '::1'], true);
+if (!$isLokal) {
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+}
+
 $DB_HOST = 'localhost';
 $DB_NAME = 'kolamkita';
 $DB_USER = 'root';

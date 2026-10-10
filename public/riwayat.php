@@ -69,7 +69,7 @@ $rows = $stmt->fetchAll();
                 <?php if ($bs === 'ditolak'): ?><small class="pay-form__warn">Bukti sebelumnya ditolak — kirim ulang.</small><?php endif; ?>
               </form>
             <?php else: ?>
-              <a href="booking_sMADAL.php?kode=<?= e($r['kode_booking']) ?>">Detail</a>
+              <a href="booking_sukses.php?kode=<?= e($r['kode_booking']) ?>">Detail</a>
             <?php endif; ?>
           </td>
         </tr>

@@ -473,6 +473,52 @@
 
 **Alasan:** `step="1000"` dengan `min="1"` hanya menerima 1/1001/2001/... sehingga nominal "5000" ditolak oleh browser dengan pesan "nilai terdekat 4001 dan 5001". Karena DP sekarang tetap 50%, nominal tidak perlu diketik sama sekali - masalah validasi HTML5 hilang dan manipulasi dari sisi klien mustahil.
 
+### Revisi 7 - Perbaikan setelah audit (slot otomatis, validasi tanggal, sumber data booking)
+
+| # | Perubahan | File |
+|---|-----------|------|
+| 1 | **Slot otomatis untuk kolam baru.** Sebelumnya slot hanya dibuat oleh seed SQL, sehingga kolam yang dibuat lewat UI tidak pernah punya slot dan tidak bisa diboking. Helper `generate_slot()` (idempotent, `INSERT IGNORE`) | `config/helpers.php`, `public/owner/kolam.php` |
+| 2 | Slot juga dis lengkapkan saat jam buka/tutup kolam diedit | `public/owner/kolam.php` |
+| 3 | Tombol "Buat slot 14 hari ke depan" untuk kolam lama tanpa slot (POST + CSRF, dicek `owner_id`) | `public/owner/jadwal.php` |
+| 4 | **Validasi tanggal booking.** Format tidak valid (mis. `2026-02-31`) dan tanggal lampau ditolak HTTP 400 | `public/api/booking.php` |
+| 5 | **Halaman sukses booking baca dari DB, bukan dari parameter URL.** Sebelumnya 5 nilai diambil dari GET sehingga halaman "Booking berhasil" bisa dipalsukan, dan `riwayat.php` yang hanya mengirim `?kode=` mendapat data default | `public/booking_sMADAL.php` |
+| 6 | Redirect setelah booking disederhanakan jadi `?kode=` saja | `public/api/booking.php` |
+| 7 | Link "Detail" di riwayat dan redirect booking diselaraskan ke satu nama file yang sama | `public/riwayat.php` |
+| 8 | Halaman sukses menolak kode milik user lain (404) dan wajib login (302) | `public/booking_sMADAL.php` |
+| 9 | `public/uploads/.htaccess` ditulis dua-duanya (`mod_authz_core.c` + fallback `Order/Deny`) agar jalan di Apache 2.2 dan 2.4 | `public/uploads/.htaccess` |
+| 10 | BOM UTF-8 dibuang dari 2 file (BOM menggeser output sebelum `header()`) | `public/owner/pembayaran.php`, `public/semua-kolam.php` |
+| 11 | Data uji dibersihkan: akun `h4a1k4l@gmail.com`, seluruh booking/payment uji, kolam uji | database |
+| 12 | Sisa polusi uji dipulihkan (semua slot kolam 1 tanggal 2026-10-11 kembali `buka`) | database |
+
+**Catatan struktur:** anti-double-booking tetap relies pada `bookings.slot_aktif` (generated column, `NULL` bila dibatalkan) + `UNIQUE KEY uniq_active_slot (kolam_id, slot_id, tanggal, slot_aktif)` — bukan pada kolom di tabel `slots`.
+
+### Revisi 8 - Horizon slot, transisi pembayaran & hardening (audit lanjutan)
+
+| # | Perubahan | File |
+|---|-----------|------|
+| 1 | **`generate_slot()` bisa mulai dari tanggal tertentu** (`$dari`). Sebelumnya selalu `today..today+13`, jadi horizon tidak pernah bisa melewati 14 hari | `config/helpers.php` |
+| 2 | `generate_slot()` menghitung **slot yang benar-benar baru** (`rowCount()`), bukan jumlah percobaan — pesan "132 slot dibuat" tidak lagiDustakan | `config/helpers.php` |
+| 3 | Helper baru **`ensure_slot_horizon()`**: mengisi slot setelah tanggal terakhir yang sudah ada, kalau horizon < 14 hari | `config/helpers.php` |
+| 4 | **Lazy generation** dari endpoint yang paling sering dipakai — app tidak lagi berhenti bisa dibooking setelah 14 hari tanpa perlu cron | `public/api/ketersediaan.php` |
+| 5 | Tombol jadwal **selalu tampil** ("Buat/Perpanjang jadwal 21 hari") + info horizon. Sebelumnya hanya muncul saat kolam punya 0 slot, sehingga tidak ada cara memperpanjang lewat UI | `public/owner/jadwal.php` |
+| 6 | Jam di-validasi ketat (`HH:MM` atau `HH:MM:SS`). `strtotime()` terlalu longgar: `12:00x` bisa menghasilkan slot 24 jam/hari, jam kosong membuat kolam 0 slot tanpa pesan error | `config/helpers.php`, `public/owner/kolam.php` |
+| 7 | **Injeksi slot lintas pemilik ditutup**: kepemilikan kolam diverifikasi sebelum `generate_slot()`. Sebelumnya UPDATE di-scope `owner_id` tapi `rowCount()` tidak dicek, jadi slot tetap ditulis ke kolam orang lain | `public/owner/kolam.php` |
+| 8 | Menurunkan jam buka/tutup kini **menutup slot di luar jam baru** (kecuali yang sudah dibooking — dilaporkan ke pemilik) | `public/owner/kolam.php` |
+| 9 | Aksi **`batal` ikut membuang payment** (`ditolak`). Sebelumnya payment tetap `diterima` sehingga uang booking batal ikut terhitung pendapatan | `public/owner/pembayaran.php` |
+| 10 | Aksi **`lunas` membersihkan `bukti_file`**. Sebelumnya badge "Lunas" tampil di samping screenshot DP 50% seolah-olah itu bukti pelunasan | `public/owner/pembayaran.php` |
+| 11 | Semua transisi status dibungkus **transaksi** agar tidak pernah ada payment `diterima` dengan booking masih `menunggu_pembayaran` | `public/owner/pembayaran.php` |
+| 12 | Query pendapatan **exclude booking dibatalkan** (pertahanan lapis kedua) | `public/owner/dashboard.php` |
+| 13 | `tanggal` divalidasi di `api/ketersediaan.php` (400 untuk format cacat) dan jam yang sudah lewat ditandai `lewat` (tidak bisa dipilih) | `public/api/ketersediaan.php`, `public/assets/js/main.js` |
+| 14 | **Defense in depth**: `api/booking.php` menolak slot di luar jam operasional kolam dan jam yang sudah lewat | `public/api/booking.php` |
+| 15 | Date picker dibatasi `min = hari ini` + pesan ramah saat grid kosong | `public/kolam.php` |
+| 16 | Guard `display_errors` diganti dari `SERVER_NAME` ke **`SERVER_ADDR`** (tidak bisa dipalsukan lewat header `Host`) | `config/database.php` |
+| 17 | **Rotasi token CSRF** setelah login & logout — token anonim tidak lagi berlaku setelah user naik privilege | `config/helpers.php`, `public/login.php`, `public/logout.php` |
+| 18 | **Wildcard LIKE di-escape** — mengetik `%`/`_` di pencarian tidak lagi jadi wildcard | `public/semua-kolam.php` |
+| 19 | **Seed diselaraskan**: `jam_tutup` kolam 1 `17:00` → `18:00` supaya 12 slot 06:00-17:00 sesuai aturan & dokumentasi (`jam_tutup` eksklusif). Sebelumnya slot jam 17:00 ada tapi tidak akan pernah bisa dibooking | `database/kolamkita.sql` |
+| 20 | Rentang tanggal di halaman Jadwal dibatasi juga dari bawah (tidak bisa menulis ulang riwayat jauh ke belakang) | `public/owner/jadwal.php` |
+
+**Aturan main yang kini berlaku:** `jam_tutup` bersifat **eksklusif** — slot terakhir selalu 1 jam sebelum jam tutup (06:00–18:00 berarti 12 slot, 06:00–16:00). Ini berlaku di seed, di `generate_slot()`, dan di validasi booking.
+
 ---
 
 ## Ringkasan

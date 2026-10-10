@@ -1,0 +1,10 @@
+# Root project — BUKAN document root. Hanya folder public/ yang boleh diakses lewat web.
+# Tanpa berkas ini, database/kolamkita.sql, README.md, dan .agents/*.md ikut terunduh.
+# Kalau docroot XAMPP diarahkan ke folder public/, blokir ini boleh dihapus.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

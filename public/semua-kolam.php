@@ -7,10 +7,16 @@ require_once __DIR__ . '/../includes/header.php';
 $q = trim($_GET['q'] ?? '');
 $ikanDicari = trim($_GET['ikan'] ?? '');
 
+// Escape wildcard LIKE. Tanpa ini, mengetik "%" atau "_" di kotak pencarian
+// diperlakukan sebagai wildcard dan bisa membuat semua kolam ikut terbawa.
+$like = static function (string $teks): string {
+    return '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $teks) . '%';
+};
+
 $sql = "SELECT * FROM kolam WHERE is_aktif = 1";
 $params = [];
-if ($q !== '') { $sql .= " AND (nama LIKE ? OR alamat LIKE ?)"; $params[] = "%$q%"; $params[] = "%$q%"; }
-if ($ikanDicari !== '') { $sql .= " AND jenis_ikan LIKE ?"; $params[] = "%$ikanDicari%"; }
+if ($q !== '') { $sql .= " AND (nama LIKE ? OR alamat LIKE ?)"; $params[] = $like($q); $params[] = $like($q); }
+if ($ikanDicari !== '') { $sql .= " AND jenis_ikan LIKE ?"; $params[] = $like($ikanDicari); }
 $sql .= " ORDER BY nama";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -25,6 +31,7 @@ foreach ($rows as $r) {
     $kolamList[] = [
         'id' => $r['id'], 'nama' => $r['nama'], 'alamat' => $r['alamat'],
         'harga' => $r['harga_per_slot'], 'ikan' => $r['jenis_ikan'] ?? '',
+        'foto' => $r['foto'] ?? '',
         'status' => $kosong > 3 ? 'kosong' : ($kosong > 0 ? 'sedikit' : 'penuh'),
     ];
 }
@@ -59,7 +66,8 @@ if ($ikanDicari !== '') {
   <div class="grid">
     <?php foreach ($rekomendasi as $k): ?>
       <article class="card">
-        <img src="/Booking_Pemancingan/public/assets/img/kolam-<?= $k['id'] ?>.jpg" alt="<?= e($k['nama']) ?>" onerror="this.style.display='none'">
+        <?php $fotoSrc = $k['foto'] ? "/Booking_Pemancingan/public/uploads/" . basename($k['foto']) : "/Booking_Pemancingan/public/assets/img/kolam-" . $k['id'] . ".jpg"; ?>
+        <img src="<?= e($fotoSrc) ?>" alt="<?= e($k['nama']) ?>" loading="lazy" onerror="this.style.display='none'">
         <div class="card-body">
           <h3><?= e($k['nama']) ?></h3>
           <p class="alamat"><?= e($k['alamat']) ?></p>
@@ -89,7 +97,8 @@ if ($ikanDicari !== '') {
   <div class="grid">
     <?php foreach (($ikanDicari !== '' ? $lain : $kolamList) as $k): ?>
       <article class="card">
-        <img src="/Booking_Pemancingan/public/assets/img/kolam-<?= $k['id'] ?>.jpg" alt="<?= e($k['nama']) ?>" onerror="this.style.display='none'">
+        <?php $fotoSrc = $k['foto'] ? "/Booking_Pemancingan/public/uploads/" . basename($k['foto']) : "/Booking_Pemancingan/public/assets/img/kolam-" . $k['id'] . ".jpg"; ?>
+        <img src="<?= e($fotoSrc) ?>" alt="<?= e($k['nama']) ?>" loading="lazy" onerror="this.style.display='none'">
         <div class="card-body">
           <h3><?= e($k['nama']) ?></h3>
           <p class="alamat"><?= e($k['alamat']) ?></p>

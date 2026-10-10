@@ -19,9 +19,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
-    if ($user && password_verify($password, $user['password_hash'])) {
-        session_regenerate_id(true);
-        $_SESSION['user'] = ['id' => $user['id'], 'nama' => $user['nama'], 'email' => $user['email'], 'role' => $user['role']];
+if ($user && password_verify($password, $user['password_hash'])) {
+          session_regenerate_id(true);
+          // Ganti token CSRF: token yang dibuat saat masih anonim tidak boleh tetap
+          // berlaku setelah user naik privilege menjadi pemilik.
+          csrf_rotate();
+          $_SESSION['user'] = ['id' => $user['id'], 'nama' => $user['nama'], 'email' => $user['email'], 'role' => $user['role']];
         if ($next !== '' && !str_contains($next, '/owner/')) {
             redirect($next);
         }

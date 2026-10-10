@@ -11,13 +11,17 @@ if (!$row) { http_response_code(404); exit('Kolam tidak ditemukan.'); }
 $kolam = [
     'nama' => $row['nama'], 'alamat' => $row['alamat'], 'harga' => $row['harga_per_slot'],
     'deskripsi' => $row['deskripsi'] ?? '', 'ikan' => $row['jenis_ikan'] ?? '',
+    'foto' => $row['foto'] ?? '',
 ];
+$fotoSrc = $kolam['foto']
+    ? '/Booking_Pemancingan/public/uploads/' . basename($kolam['foto'])
+    : '/Booking_Pemancingan/public/assets/img/kolam-' . $id . '.jpg';
 $tanggal = $_GET['tanggal'] ?? date('Y-m-d');
 ?>
 <section class="section container">
   <div class="grid detail-grid">
     <div>
-      <img src="/Booking_Pemancingan/public/assets/img/kolam-<?= $id ?>.jpg" alt="<?= e($kolam['nama']) ?>" style="border-radius:var(--radius); height:280px; object-fit:cover; width:100%" onerror="this.style.display='none'">
+      <img src="<?= e($fotoSrc) ?>" alt="<?= e($kolam['nama']) ?>" style="border-radius:var(--radius); height:280px; object-fit:cover; width:100%" onerror="this.style.display='none'">
       <h1 style="margin-top:1rem"><?= e($kolam['nama']) ?></h1>
       <p class="alamat"><?= e($kolam['alamat']) ?></p>
       <p><?= e($kolam['deskripsi']) ?></p>
@@ -30,7 +34,7 @@ $tanggal = $_GET['tanggal'] ?? date('Y-m-d');
       <p class="harga mono"><?= format_rupiah($kolam['harga']) ?> / orang</p>
 
       <h2 style="margin-top:2rem">Pilih tanggal & jam</h2>
-      <input type="date" id="tanggal" value="<?= e($tanggal) ?>">
+      <input type="date" id="tanggal" value="<?= e($tanggal) ?>" min="<?= e(date('Y-m-d')) ?>">
       <input type="hidden" id="kolam-id" value="<?= $id ?>">
       <div id="slot-grid"></div>
       <div class="float-legend" style="margin-top:.5rem">

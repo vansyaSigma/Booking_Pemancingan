@@ -9,7 +9,9 @@ $ownerId = $_SESSION['user']['id'];
 $filterTgl = $_GET['tanggal'] ?? '';
 $filterStatus = $_GET['status'] ?? '';
 
-$pendapatan = $pdo->prepare("SELECT COALESCE(SUM(p.nominal),0) FROM payments p JOIN bookings b ON b.id = p.booking_id JOIN kolam k ON k.id = b.kolam_id WHERE k.owner_id = ? AND p.status = 'diterima' AND p.paid_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
+// Booking yang dibatalkan tidak boleh ikut dihitung sebagai pendapatan, walau
+// payment-nya masih berstatus 'diterima'.
+$pendapatan = $pdo->prepare("SELECT COALESCE(SUM(p.nominal),0) FROM payments p JOIN bookings b ON b.id = p.booking_id JOIN kolam k ON k.id = b.kolam_id WHERE k.owner_id = ? AND p.status = 'diterima' AND b.status <> 'dibatalkan' AND p.paid_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
 $pendapatan->execute([$ownerId]);
 $totalMinggu = $pendapatan->fetchColumn();
 

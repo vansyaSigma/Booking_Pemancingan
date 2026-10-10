@@ -82,11 +82,12 @@ INSERT INTO users (nama, email, password_hash, no_wa, role) VALUES
 
 -- Seed kolam
 INSERT INTO kolam (owner_id, nama, deskripsi, alamat, harga_per_slot, jam_buka, jam_tutup, jenis_ikan) VALUES
-(1, 'Kolam Surya Gemilang', 'Kolam harian ikan mas & nila, fasilitas lengkap, mushola, kantin.', 'Cipayung, Jakarta Timur', 75000, '06:00', '17:00', 'Mas, Nila, Patin'),
+(1, 'Kolam Surya Gemilang', 'Kolam harian ikan mas & nila, fasilitas lengkap, mushola, kantin.', 'Cipayung, Jakarta Timur', 75000, '06:00', '18:00', 'Mas, Nila, Patin'),
 (1, 'Kolam Danau Biru', 'Kolam harian & galatama, view danau, parkir luas.', 'Depok, Jawa Barat', 65000, '06:00', '18:00', 'Lele, Mas, Gurame'),
 (1, 'Pemancingan Pak Hadi', 'Kolam sederhana, cocok pemula, siap galatama tiap Sabtu.', 'Bekasi, Jawa Barat', 50000, '06:00', '17:00', 'Nila, Lele');
 
 -- Seed slots: 7 hari ke depan, jam 06:00-17:00 untuk kolam 1 & 2, 06:00-16:00 untuk kolam 3
+-- (jam_tutup bersifat eksklusif: slot terakhir selalu 1 jam sebelum jam_tutup)
 INSERT INTO slots (kolam_id, tanggal, jam)
 SELECT 1, DATE_ADD(CURDATE(), INTERVAL d DAY), TIME(CONCAT(h, ':00:00'))
 FROM (SELECT 0 d UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6) dd
