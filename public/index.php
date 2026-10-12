@@ -21,7 +21,7 @@ $preview = $stmtPrev->fetchAll();
 <section class="hero">
   <div class="container">
     <p class="mono hero__eyebrow">Booking kolam pemancingan</p>
-    <h1>Cek slot. Datang. Mancing.</h1>
+    <h1>Cek slot. Datang. Mancing. Pulang.</h1>
     <p class="lead">Cek kolam mana yang masih kosong hari ini, pesan jamnya, lalu kabari pemicangnya lewat WhatsApp — tanpa chat yang menumpuk.</p>
     <div class="hero-actions">
       <?php if ($user): ?>
